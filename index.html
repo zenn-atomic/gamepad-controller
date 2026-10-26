@@ -1,139 +1,227 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="id">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
+    />
     <title>Virtual Gamepad</title>
-    
+
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
 
     <style>
-        * { box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; user-select: none; }
-        body { margin: 0; padding: 0; background-color: #f8f9fa; color: #333; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; overflow: hidden; }
-        
-        .screen { display: none; width: 100%; height: 100%; flex-direction: column; align-items: center; justify-content: center; }
-        .active { display: flex; }
+      * {
+        box-sizing: border-box;
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        user-select: none;
+      }
+      body {
+        margin: 0;
+        padding: 0;
+        background-color: #f8f9fa;
+        color: #333;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        height: 100vh;
+        overflow: hidden;
+      }
 
-        /* Lobby & Form */
-        h1 { margin-bottom: 20px; text-align: center; color: #175d7b; }
-        .btn-lobby { padding: 15px 30px; margin: 10px; font-size: 18px; font-weight: bold; color: white; background: #175d7b; border: none; border-radius: 10px; cursor: pointer; width: 80%; max-width: 300px; text-align: center; }
-        .input-box { padding: 15px; font-size: 24px; text-align: center; width: 80%; max-width: 300px; border-radius: 10px; border: 2px solid #175d7b; margin-bottom: 15px; outline: none; }
-        #room-display { font-size: 60px; color: #175d7b; font-weight: bold; letter-spacing: 5px; }
+      .screen {
+        display: none;
+        width: 100%;
+        height: 100%;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+      }
+      .active {
+        display: flex;
+      }
 
-        /* Tampilan Gamepad Landscape */
-        .gamepad-container { position: relative; width: 100%; height: 100%; background: #fdfdfd; }
-        
-        /* Tombol Kiri Atas (LB, RB, B) */
-        .left-stack { position: absolute; top: 20px; left: 20px; display: flex; flex-direction: column; gap: 15px; }
-        
-        /* Tombol Kanan Bawah (X, Y, A) */
-        .right-row { position: absolute; bottom: 40px; right: 40px; display: flex; gap: 15px; }
+      /* Lobby & Form */
+      h1 {
+        margin-bottom: 20px;
+        text-align: center;
+        color: #175d7b;
+      }
+      .btn-lobby {
+        padding: 15px 30px;
+        margin: 10px;
+        font-size: 18px;
+        font-weight: bold;
+        color: white;
+        background: #175d7b;
+        border: none;
+        border-radius: 10px;
+        cursor: pointer;
+        width: 80%;
+        max-width: 300px;
+        text-align: center;
+      }
+      .input-box {
+        padding: 15px;
+        font-size: 24px;
+        text-align: center;
+        width: 80%;
+        max-width: 300px;
+        border-radius: 10px;
+        border: 2px solid #175d7b;
+        margin-bottom: 15px;
+        outline: none;
+      }
+      #room-display {
+        font-size: 60px;
+        color: #175d7b;
+        font-weight: bold;
+        letter-spacing: 5px;
+      }
 
-        /* 
+      /* Tampilan Gamepad Landscape */
+      .gamepad-container {
+        position: relative;
+        width: 100%;
+        height: 100%;
+        background: #fdfdfd;
+      }
+
+      /* Tombol Kiri Atas (LB, RB, B) */
+      .left-stack {
+        position: absolute;
+        top: 20px;
+        left: 20px;
+        display: flex;
+        flex-direction: column;
+        gap: 15px;
+      }
+
+      /* Tombol Kanan Bawah (X, Y, A) */
+      .right-row {
+        position: absolute;
+        bottom: 40px;
+        right: 40px;
+        display: flex;
+        gap: 15px;
+      }
+
+      /* 
         ========================================================================
         PENTING: Jika Anda membesarkan tombol WASD di bawah, Anda juga harus 
         membesarkan angka "60px" di bagian grid-template ini agar tombol 
         tidak saling bertumpuk/tumpang tindih!
         ======================================================================== 
         */
-        .d-pad { 
-            position: absolute; 
-            bottom: 30px; 
-            left: 40px; 
-            display: grid; 
-            grid-template-columns: 60px 60px 60px; /* <--- GANTI 60px INI JIKA TOMBOL DIBESARKAN */
-            grid-template-rows: 60px 60px 60px;    /* <--- GANTI 60px INI JIKA TOMBOL DIBESARKAN */
-            gap: 5px; 
-        }
-        .up { grid-column: 2; grid-row: 1; }
-        .left { grid-column: 1; grid-row: 2; }
-        .right { grid-column: 3; grid-row: 2; }
-        .down { grid-column: 2; grid-row: 3; }
-
-        /* 
+      .d-pad {
+        position: absolute;
+        bottom: 30px;
+        left: 70px;
+        display: grid;
+        grid-template-columns: 80px 80px 80px; /* <--- GANTI 60px INI JIKA TOMBOL DIBESARKAN */
+        grid-template-rows: 80px 80px 80px; /* <--- GANTI 60px INI JIKA TOMBOL DIBESARKAN */
+        gap: 5px;
+      }
+      .left {
+        grid-column: 1;
+        grid-row: 2;
+      }
+      .right {
+        grid-column: 3;
+        grid-row: 2;
+      }
+      /* 
         ========================================================================
         👇 UBAH UKURAN SEMUA TOMBOL BUNDAR DI SINI 👇
         ======================================================================== 
         */
-        .btn-circle { 
-            width: 60px;  /* <--- 1. GANTI ANGKA INI untuk LEBAR tombol (Contoh: 80px) */
-            height: 60px; /* <--- 2. GANTI ANGKA INI untuk TINGGI tombol (Pastikan sama dengan width agar tetap bundar) */
-            
-            border-radius: 50%; 
-            background-color: #15627f; 
-            color: white; 
-            border: 2px solid #092e3d; 
-            display: flex; 
-            justify-content: center; 
-            align-items: center; 
-            font-weight: bold; 
-            
-            font-size: 22px; /* <--- 3. GANTI ANGKA INI untuk BESAR HURUF di dalam tombol */
-            
-            box-shadow: 0 4px 6px rgba(0,0,0,0.3); 
-        }
+      .btn-circle {
+        width: 60px; /* <--- 1. GANTI ANGKA INI untuk LEBAR tombol (Contoh: 80px) */
+        height: 60px; /* <--- 2. GANTI ANGKA INI untuk TINGGI tombol (Pastikan sama dengan width agar tetap bundar) */
 
-        /* Khusus memperbesar tombol X, Y, A di kanan bawah */
-         .right-row .btn-circle {
-            width: 80px;       /* Ubah ukuran lebarnya di sini */
-            height: 80px;      /* Ubah ukuran tingginya di sini */
-            font-size: 28px;   /* Ubah ukuran hurufnya di sini */
-        }
-        
-        .pressed { filter: brightness(1.3); transform: scale(0.90) translateY(2px); box-shadow: none !important; }
+        border-radius: 50%;
+        background-color: #15627f;
+        color: white;
+        border: 2px solid #092e3d;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        font-weight: bold;
+
+        font-size: 22px; /* <--- 3. GANTI ANGKA INI untuk BESAR HURUF di dalam tombol */
+
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+      }
+
+      /* Khusus memperbesar tombol X, Y, A di kanan bawah */
+      .right-row .btn-circle {
+        width: 80px; /* Ubah ukuran lebarnya di sini */
+        height: 80px; /* Ubah ukuran tingginya di sini */
+        font-size: 28px; /* Ubah ukuran hurufnya di sini */
+      }
+
+      .pressed {
+        filter: brightness(1.3);
+        transform: scale(0.9) translateY(2px);
+        box-shadow: none !important;
+      }
     </style>
-</head>
-<body>
-
+  </head>
+  <body>
     <!-- SCREEN 1: LOBBY -->
     <div id="screen-lobby" class="screen active">
-        <h1>Pilih Mode</h1>
-        <button class="btn-lobby" onclick="showScreen('screen-laptop')">💻 Laptop (Buat Room)</button>
-        <button class="btn-lobby" onclick="showScreen('screen-phone-login')">📱 HP (Masuk Room)</button>
+      <h1>Pilih Mode</h1>
+      <button class="btn-lobby" onclick="showScreen('screen-laptop')">
+        💻 Laptop (Buat Room)
+      </button>
+      <button class="btn-lobby" onclick="showScreen('screen-phone-login')">
+        📱 HP (Masuk Room)
+      </button>
     </div>
 
     <!-- SCREEN 2: LAPTOP -->
     <div id="screen-laptop" class="screen">
-        <h2>ROOM ID:</h2>
-        <div id="room-display">----</div>
-        <p>Buka di HP, masukkan ID, lalu jalankan Python.</p>
+      <h2>ROOM ID:</h2>
+      <div id="room-display">----</div>
+      <p>Buka di HP, masukkan ID, lalu jalankan Python.</p>
     </div>
 
     <!-- SCREEN 3: HP LOGIN -->
     <div id="screen-phone-login" class="screen">
-        <h2>Masukkan Room ID</h2>
-        <input type="number" id="room-input" class="input-box" placeholder="1234">
-        <button class="btn-lobby" onclick="connectToRoom()">Connect 🎮</button>
+      <h2>Masukkan Room ID</h2>
+      <input
+        type="number"
+        id="room-input"
+        class="input-box"
+        placeholder="1234"
+      />
+      <button class="btn-lobby" onclick="connectToRoom()">Connect 🎮</button>
     </div>
 
     <!-- SCREEN 4: GAMEPAD -->
     <div id="screen-gamepad" class="screen">
-        <div class="gamepad-container">
-            
-            <!-- Stack Kiri: LB, RB, B -->
-            <div class="left-stack">
-                <div class="btn-circle" data-key="button_lb">LB</div>
-                <div class="btn-circle" data-key="button_rb">RB</div>
-                <div class="btn-circle" data-key="button_b">B</div>
-            </div>
-
-            <!-- D-PAD Kiri Bawah (Sudah berbentuk bundar) -->
-            <div class="d-pad">
-                <div class="btn-circle up" data-key="up">W</div>
-                <div class="btn-circle left" data-key="left">A</div>
-                <div class="btn-circle right" data-key="right">D</div>
-                <div class="btn-circle down" data-key="down">S</div>
-            </div>
-            
-            <!-- Row Kanan Bawah: X, Y, A -->
-            <div class="right-row">
-                <div class="btn-circle" data-key="button_x">X</div>
-                <div class="btn-circle" data-key="button_y">Y</div>
-                <div class="btn-circle" data-key="button_a">A</div>
-            </div>
-            
+      <div class="gamepad-container">
+        <!-- Stack Kiri: LB, RB, B -->
+        <div class="left-stack">
+          <div class="btn-circle" data-key="button_lb">LB</div>
+          <div class="btn-circle" data-key="button_rb">RB</div>
+          <div class="btn-circle" data-key="button_b">B</div>
         </div>
+
+        <!-- D-PAD Kiri Bawah (Sudah berbentuk bundar) -->
+        <div class="d-pad">
+          <div class="btn-circle left" data-key="left">A</div>
+          <div class="btn-circle right" data-key="right">D</div>
+        </div>
+
+        <!-- Row Kanan Bawah: X, Y, A -->
+        <div class="right-row">
+          <div class="btn-circle" data-key="button_x">X</div>
+          <div class="btn-circle" data-key="button_y">Y</div>
+          <div class="btn-circle" data-key="button_a">A</div>
+        </div>
+      </div>
     </div>
 
     <script>
@@ -182,7 +270,7 @@
           button_x: false,
           button_y: false,
           button_lb: false,
-          button_rb: false
+          button_rb: false,
         });
       }
 
@@ -220,7 +308,7 @@
         const keyName = button.getAttribute("data-key");
 
         button.addEventListener("touchstart", (e) => {
-          e.preventDefault(); 
+          e.preventDefault();
           button.classList.add("pressed");
           updateFirebase(keyName, true);
         });
@@ -245,5 +333,5 @@
         });
       });
     </script>
-</body>
+  </body>
 </html>
