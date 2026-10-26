@@ -1,225 +1,105 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="id">
-  <head>
-    <meta charset="UTF-8" />
-    <!-- Mencegah zoom di HP agar nyaman saat dipencet -->
-    <meta
-      name="viewport"
-      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
-    />
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Virtual Gamepad</title>
-
-    <!-- Memanggil Firebase Firestore (Versi 8 agar mudah dipasang tanpa Node.js) -->
+    
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
 
     <style>
-      * {
-        box-sizing: border-box;
-        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
-        user-select: none;
-      }
-      body {
-        margin: 0;
-        padding: 0;
-        background-color: #1a1a2e;
-        color: white;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        height: 100vh;
-        overflow: hidden;
-      }
+        * { box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; user-select: none; }
+        body { margin: 0; padding: 0; background-color: #f8f9fa; color: #333; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; overflow: hidden; }
+        
+        .screen { display: none; width: 100%; height: 100%; flex-direction: column; align-items: center; justify-content: center; }
+        .active { display: flex; }
 
-      .screen {
-        display: none;
-        width: 100%;
-        height: 100%;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-      }
-      .active {
-        display: flex;
-      }
+        /* Lobby & Form */
+        h1 { margin-bottom: 20px; text-align: center; color: #175d7b; }
+        .btn-lobby { padding: 15px 30px; margin: 10px; font-size: 18px; font-weight: bold; color: white; background: #175d7b; border: none; border-radius: 10px; cursor: pointer; width: 80%; max-width: 300px; text-align: center; }
+        .input-box { padding: 15px; font-size: 24px; text-align: center; width: 80%; max-width: 300px; border-radius: 10px; border: 2px solid #175d7b; margin-bottom: 15px; outline: none; }
+        #room-display { font-size: 60px; color: #175d7b; font-weight: bold; letter-spacing: 5px; }
 
-      /* Tampilan Lobby & Form */
-      h1 {
-        margin-bottom: 20px;
-        text-align: center;
-      }
-      .btn {
-        padding: 15px 30px;
-        margin: 10px;
-        font-size: 18px;
-        font-weight: bold;
-        color: white;
-        background: #16213e;
-        border: 2px solid #0f3460;
-        border-radius: 10px;
-        cursor: pointer;
-        width: 80%;
-        max-width: 300px;
-        text-align: center;
-      }
-      .btn:active {
-        background: #e94560;
-      }
-      .input-box {
-        padding: 15px;
-        font-size: 24px;
-        text-align: center;
-        width: 80%;
-        max-width: 300px;
-        border-radius: 10px;
-        border: none;
-        margin-bottom: 15px;
-        outline: none;
-      }
+        /* Tampilan Gamepad Landscape */
+        .gamepad-container { position: relative; width: 100%; height: 100%; background: #fdfdfd; }
+        
+        /* Tombol Kiri Atas (LB, RB, B) */
+        .left-stack { position: absolute; top: 20px; left: 20px; display: flex; flex-direction: column; gap: 15px; }
+        
+        /* Tombol Kanan Bawah (X, Y, A) */
+        .right-row { position: absolute; bottom: 40px; right: 40px; display: flex; gap: 15px; }
 
-      #room-display {
-        font-size: 60px;
-        color: #e94560;
-        font-weight: bold;
-        letter-spacing: 5px;
-      }
+        /* D-Pad Kiri Bawah */
+        .d-pad { position: absolute; bottom: 40px; left: 140px; display: grid; grid-template-columns: 60px 60px 60px; grid-template-rows: 60px 60px 60px; gap: 5px; }
+        .up { grid-column: 2; grid-row: 1; }
+        .left { grid-column: 1; grid-row: 2; }
+        .right { grid-column: 3; grid-row: 2; }
+        .down { grid-column: 2; grid-row: 3; }
 
-      /* Tampilan Gamepad */
-      .gamepad-container {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        width: 100%;
-        max-width: 800px;
-        padding: 20px;
-        height: 100%;
-      }
+        /* Style Umum Tombol Bulat */
+        .btn-circle { width: 60px; height: 60px; border-radius: 50%; background-color: #15627f; color: white; border: 2px solid #092e3d; display: flex; justify-content: center; align-items: center; font-weight: bold; font-size: 18px; box-shadow: 0 4px 6px rgba(0,0,0,0.3); }
+        
+        /* Style Panah D-Pad */
+        .btn-arrow { width: 60px; height: 60px; background-color: #15627f; color: transparent; border: 2px solid #092e3d; display: flex; justify-content: center; align-items: center; font-size: 30px; line-height: 1; text-shadow: 0 0 0 white; box-shadow: 0 4px 6px rgba(0,0,0,0.3); }
+        .btn-arrow.up { clip-path: polygon(50% 0%, 100% 50%, 75% 50%, 75% 100%, 25% 100%, 25% 50%, 0% 50%); border-radius: 5px; }
+        .btn-arrow.down { clip-path: polygon(25% 0%, 75% 0%, 75% 50%, 100% 50%, 50% 100%, 0% 50%, 25% 50%); border-radius: 5px; }
+        .btn-arrow.left { clip-path: polygon(100% 25%, 100% 75%, 50% 75%, 50% 100%, 0% 50%, 50% 0%, 50% 25%); border-radius: 5px; }
+        .btn-arrow.right { clip-path: polygon(0% 25%, 0% 75%, 50% 75%, 50% 100%, 100% 50%, 50% 0%, 50% 25%); border-radius: 5px; }
 
-      .d-pad,
-      .action-buttons {
-        display: grid;
-        gap: 5px;
-        width: 150px;
-        height: 150px;
-      }
-
-      .d-pad {
-        grid-template-columns: 1fr 1fr 1fr;
-        grid-template-rows: 1fr 1fr 1fr;
-      }
-      .d-pad .btn-pad {
-        background: #333;
-        border-radius: 10px;
-        border: 2px solid #555;
-      }
-      .d-pad .up {
-        grid-column: 2;
-        grid-row: 1;
-      }
-      .d-pad .left {
-        grid-column: 1;
-        grid-row: 2;
-      }
-      .d-pad .right {
-        grid-column: 3;
-        grid-row: 2;
-      }
-      .d-pad .down {
-        grid-column: 2;
-        grid-row: 3;
-      }
-
-      .action-buttons {
-        grid-template-columns: 1fr 1fr 1fr;
-        grid-template-rows: 1fr 1fr 1fr;
-      }
-      .action-buttons .btn-act {
-        background: #0f3460;
-        border-radius: 50%;
-        border: none;
-        font-size: 20px;
-        font-weight: bold;
-        color: white;
-      }
-      .action-buttons .y {
-        grid-column: 2;
-        grid-row: 1;
-        background: #f39c12;
-      }
-      .action-buttons .x {
-        grid-column: 1;
-        grid-row: 2;
-        background: #3498db;
-      }
-      .action-buttons .b {
-        grid-column: 3;
-        grid-row: 2;
-        background: #e74c3c;
-      }
-      .action-buttons .a {
-        grid-column: 2;
-        grid-row: 3;
-        background: #2ecc71;
-      }
-
-      .pressed {
-        filter: brightness(1.5) drop-shadow(0 0 10px rgba(255, 255, 255, 0.5));
-        transform: scale(0.95);
-      }
+        .pressed { filter: brightness(1.3); transform: scale(0.90) translateY(2px); box-shadow: none !important; }
     </style>
-  </head>
-  <body>
-    <!-- SCREEN 1: PILIH MODE -->
+</head>
+<body>
+
+    <!-- SCREEN 1: LOBBY -->
     <div id="screen-lobby" class="screen active">
-      <h1>Pilih Perangkat</h1>
-      <button class="btn" onclick="showScreen('screen-laptop')">
-        💻 Laptop (Buat Room)
-      </button>
-      <button class="btn" onclick="showScreen('screen-phone-login')">
-        📱 HP (Masuk Room)
-      </button>
+        <h1>Pilih Mode</h1>
+        <button class="btn-lobby" onclick="showScreen('screen-laptop')">💻 Laptop (Buat Room)</button>
+        <button class="btn-lobby" onclick="showScreen('screen-phone-login')">📱 HP (Masuk Room)</button>
     </div>
 
-    <!-- SCREEN 2: LAPTOP (BUAT ROOM) -->
+    <!-- SCREEN 2: LAPTOP -->
     <div id="screen-laptop" class="screen">
-      <h2>ROOM ID ANDA:</h2>
-      <div id="room-display">----</div>
-      <p>Buka web ini di HP dan masukkan kode di atas.</p>
-      <p>Lalu jalankan Script Python untuk BlueStacks.</p>
+        <h2>ROOM ID:</h2>
+        <div id="room-display">----</div>
+        <p>Buka di HP, masukkan ID, lalu jalankan Python.</p>
     </div>
 
-    <!-- SCREEN 3: HP (INPUT ROOM) -->
+    <!-- SCREEN 3: HP LOGIN -->
     <div id="screen-phone-login" class="screen">
-      <h2>Masukkan Room ID</h2>
-      <input
-        type="number"
-        id="room-input"
-        class="input-box"
-        placeholder="Contoh: 1234"
-      />
-      <button class="btn" onclick="connectToRoom()">Connect 🎮</button>
+        <h2>Masukkan Room ID</h2>
+        <input type="number" id="room-input" class="input-box" placeholder="1234">
+        <button class="btn-lobby" onclick="connectToRoom()">Connect 🎮</button>
     </div>
 
-    <!-- SCREEN 4: GAMEPAD (HP) -->
+    <!-- SCREEN 4: GAMEPAD -->
     <div id="screen-gamepad" class="screen">
-      <div class="gamepad-container">
-        <!-- D-Pad Kiri -->
-        <div class="d-pad">
-          <div class="btn-pad up" data-key="up"></div>
-          <div class="btn-pad left" data-key="left"></div>
-          <div class="btn-pad right" data-key="right"></div>
-          <div class="btn-pad down" data-key="down"></div>
-        </div>
+        <div class="gamepad-container">
+            
+            <!-- Stack Kiri: LB, RB, B -->
+            <div class="left-stack">
+                <div class="btn-circle" data-key="button_lb">LB</div>
+                <div class="btn-circle" data-key="button_rb">RB</div>
+                <div class="btn-circle" data-key="button_b">B</div>
+            </div>
 
-        <!-- Tombol Aksi Kanan -->
-        <div class="action-buttons">
-          <button class="btn-act y" data-key="button_y">Y</button>
-          <button class="btn-act x" data-key="button_x">X</button>
-          <button class="btn-act b" data-key="button_b">B</button>
-          <button class="btn-act a" data-key="button_a">A</button>
+            <!-- D-PAD Kiri Bawah -->
+            <div class="d-pad">
+                <div class="btn-arrow up" data-key="up"></div>
+                <div class="btn-arrow left" data-key="left"></div>
+                <div class="btn-arrow right" data-key="right"></div>
+                <div class="btn-arrow down" data-key="down"></div>
+            </div>
+            
+            <!-- Row Kanan Bawah: X, Y, A -->
+            <div class="right-row">
+                <div class="btn-circle" data-key="button_x">X</div>
+                <div class="btn-circle" data-key="button_y">Y</div>
+                <div class="btn-circle" data-key="button_a">A</div>
+            </div>
+            
         </div>
-      </div>
     </div>
 
     <script>
@@ -262,7 +142,7 @@
         currentRoomId = Math.floor(1000 + Math.random() * 9000).toString();
         document.getElementById("room-display").innerText = currentRoomId;
 
-        // Set data awal di Firebase agar Python tidak error
+        // Set data awal di Firebase agar Python tidak error, termasuk tombol baru
         db.collection("rooms").doc(currentRoomId).set({
           up: false,
           down: false,
@@ -272,6 +152,8 @@
           button_b: false,
           button_x: false,
           button_y: false,
+          button_lb: false,
+          button_rb: false
         });
       }
 
@@ -283,6 +165,7 @@
           showScreen("screen-gamepad");
           // Mengunci layar HP agar horizontal (Jika didukung browser)
           try {
+            document.documentElement.requestFullscreen();
             screen.orientation.lock("landscape");
           } catch (e) {}
         } else {
@@ -293,7 +176,7 @@
       // ========================================================
       // LOGIC KONTROL GAMEPAD (Mengirim data ke Firebase)
       // ========================================================
-      const buttons = document.querySelectorAll(".btn-pad, .btn-act");
+      const buttons = document.querySelectorAll(".btn-arrow, .btn-circle");
 
       function updateFirebase(keyName, isPressed) {
         if (!currentRoomId) return;
@@ -337,7 +220,12 @@
           button.classList.remove("pressed");
           updateFirebase(keyName, false);
         });
+        // Tambahan agar tombol tidak nyangkut saat kursor mouse keluar dari tombol
+        button.addEventListener("mouseleave", () => {
+          button.classList.remove("pressed");
+          updateFirebase(keyName, false);
+        });
       });
     </script>
-  </body>
+</body>
 </html>
