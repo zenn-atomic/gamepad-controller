@@ -1,0 +1,343 @@
+<!doctype html>
+<html lang="id">
+  <head>
+    <meta charset="UTF-8" />
+    <!-- Mencegah zoom di HP agar nyaman saat dipencet -->
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
+    />
+    <title>Virtual Gamepad</title>
+
+    <!-- Memanggil Firebase Firestore (Versi 8 agar mudah dipasang tanpa Node.js) -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+
+    <style>
+      * {
+        box-sizing: border-box;
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        user-select: none;
+      }
+      body {
+        margin: 0;
+        padding: 0;
+        background-color: #1a1a2e;
+        color: white;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        height: 100vh;
+        overflow: hidden;
+      }
+
+      .screen {
+        display: none;
+        width: 100%;
+        height: 100%;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+      }
+      .active {
+        display: flex;
+      }
+
+      /* Tampilan Lobby & Form */
+      h1 {
+        margin-bottom: 20px;
+        text-align: center;
+      }
+      .btn {
+        padding: 15px 30px;
+        margin: 10px;
+        font-size: 18px;
+        font-weight: bold;
+        color: white;
+        background: #16213e;
+        border: 2px solid #0f3460;
+        border-radius: 10px;
+        cursor: pointer;
+        width: 80%;
+        max-width: 300px;
+        text-align: center;
+      }
+      .btn:active {
+        background: #e94560;
+      }
+      .input-box {
+        padding: 15px;
+        font-size: 24px;
+        text-align: center;
+        width: 80%;
+        max-width: 300px;
+        border-radius: 10px;
+        border: none;
+        margin-bottom: 15px;
+        outline: none;
+      }
+
+      #room-display {
+        font-size: 60px;
+        color: #e94560;
+        font-weight: bold;
+        letter-spacing: 5px;
+      }
+
+      /* Tampilan Gamepad */
+      .gamepad-container {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        width: 100%;
+        max-width: 800px;
+        padding: 20px;
+        height: 100%;
+      }
+
+      .d-pad,
+      .action-buttons {
+        display: grid;
+        gap: 5px;
+        width: 150px;
+        height: 150px;
+      }
+
+      .d-pad {
+        grid-template-columns: 1fr 1fr 1fr;
+        grid-template-rows: 1fr 1fr 1fr;
+      }
+      .d-pad .btn-pad {
+        background: #333;
+        border-radius: 10px;
+        border: 2px solid #555;
+      }
+      .d-pad .up {
+        grid-column: 2;
+        grid-row: 1;
+      }
+      .d-pad .left {
+        grid-column: 1;
+        grid-row: 2;
+      }
+      .d-pad .right {
+        grid-column: 3;
+        grid-row: 2;
+      }
+      .d-pad .down {
+        grid-column: 2;
+        grid-row: 3;
+      }
+
+      .action-buttons {
+        grid-template-columns: 1fr 1fr 1fr;
+        grid-template-rows: 1fr 1fr 1fr;
+      }
+      .action-buttons .btn-act {
+        background: #0f3460;
+        border-radius: 50%;
+        border: none;
+        font-size: 20px;
+        font-weight: bold;
+        color: white;
+      }
+      .action-buttons .y {
+        grid-column: 2;
+        grid-row: 1;
+        background: #f39c12;
+      }
+      .action-buttons .x {
+        grid-column: 1;
+        grid-row: 2;
+        background: #3498db;
+      }
+      .action-buttons .b {
+        grid-column: 3;
+        grid-row: 2;
+        background: #e74c3c;
+      }
+      .action-buttons .a {
+        grid-column: 2;
+        grid-row: 3;
+        background: #2ecc71;
+      }
+
+      .pressed {
+        filter: brightness(1.5) drop-shadow(0 0 10px rgba(255, 255, 255, 0.5));
+        transform: scale(0.95);
+      }
+    </style>
+  </head>
+  <body>
+    <!-- SCREEN 1: PILIH MODE -->
+    <div id="screen-lobby" class="screen active">
+      <h1>Pilih Perangkat</h1>
+      <button class="btn" onclick="showScreen('screen-laptop')">
+        💻 Laptop (Buat Room)
+      </button>
+      <button class="btn" onclick="showScreen('screen-phone-login')">
+        📱 HP (Masuk Room)
+      </button>
+    </div>
+
+    <!-- SCREEN 2: LAPTOP (BUAT ROOM) -->
+    <div id="screen-laptop" class="screen">
+      <h2>ROOM ID ANDA:</h2>
+      <div id="room-display">----</div>
+      <p>Buka web ini di HP dan masukkan kode di atas.</p>
+      <p>Lalu jalankan Script Python untuk BlueStacks.</p>
+    </div>
+
+    <!-- SCREEN 3: HP (INPUT ROOM) -->
+    <div id="screen-phone-login" class="screen">
+      <h2>Masukkan Room ID</h2>
+      <input
+        type="number"
+        id="room-input"
+        class="input-box"
+        placeholder="Contoh: 1234"
+      />
+      <button class="btn" onclick="connectToRoom()">Connect 🎮</button>
+    </div>
+
+    <!-- SCREEN 4: GAMEPAD (HP) -->
+    <div id="screen-gamepad" class="screen">
+      <div class="gamepad-container">
+        <!-- D-Pad Kiri -->
+        <div class="d-pad">
+          <div class="btn-pad up" data-key="up"></div>
+          <div class="btn-pad left" data-key="left"></div>
+          <div class="btn-pad right" data-key="right"></div>
+          <div class="btn-pad down" data-key="down"></div>
+        </div>
+
+        <!-- Tombol Aksi Kanan -->
+        <div class="action-buttons">
+          <button class="btn-act y" data-key="button_y">Y</button>
+          <button class="btn-act x" data-key="button_x">X</button>
+          <button class="btn-act b" data-key="button_b">B</button>
+          <button class="btn-act a" data-key="button_a">A</button>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      // ========================================================
+      // 1. MASUKKAN CONFIG FIREBASE ANDA DI SINI
+      // (Dapatkan dari Firebase Console -> Project Settings -> General)
+      // ========================================================
+      const firebaseConfig = {
+        apiKey: "AIzaSyA1mifYk_Pf4fKsULRRrM4fh2j1YuuyMCg",
+        authDomain: "gamepad-40ff2.firebaseapp.com",
+        projectId: "gamepad-40ff2",
+        storageBucket: "gamepad-40ff2.firebasestorage.app",
+        messagingSenderId: "826006688918",
+        appId: "1:826006688918:web:163467256fdcd7f2469eb7",
+        measurementId: "G-R6LC6SF4CB",
+      };
+
+      // Inisialisasi Firebase
+      if (!firebase.apps.length) {
+        firebase.initializeApp(firebaseConfig);
+      }
+      const db = firebase.firestore();
+
+      let currentRoomId = null;
+
+      // Fungsi Ganti Layar
+      function showScreen(screenId) {
+        document
+          .querySelectorAll(".screen")
+          .forEach((s) => s.classList.remove("active"));
+        document.getElementById(screenId).classList.add("active");
+
+        if (screenId === "screen-laptop") {
+          generateRoom();
+        }
+      }
+
+      // LAPTOP: Membuat Room ID otomatis
+      function generateRoom() {
+        currentRoomId = Math.floor(1000 + Math.random() * 9000).toString();
+        document.getElementById("room-display").innerText = currentRoomId;
+
+        // Set data awal di Firebase agar Python tidak error
+        db.collection("rooms").doc(currentRoomId).set({
+          up: false,
+          down: false,
+          left: false,
+          right: false,
+          button_a: false,
+          button_b: false,
+          button_x: false,
+          button_y: false,
+        });
+      }
+
+      // HP: Connect ke Room
+      function connectToRoom() {
+        const input = document.getElementById("room-input").value;
+        if (input.length === 4) {
+          currentRoomId = input;
+          showScreen("screen-gamepad");
+          // Mengunci layar HP agar horizontal (Jika didukung browser)
+          try {
+            screen.orientation.lock("landscape");
+          } catch (e) {}
+        } else {
+          alert("Masukkan 4 digit angka!");
+        }
+      }
+
+      // ========================================================
+      // LOGIC KONTROL GAMEPAD (Mengirim data ke Firebase)
+      // ========================================================
+      const buttons = document.querySelectorAll(".btn-pad, .btn-act");
+
+      function updateFirebase(keyName, isPressed) {
+        if (!currentRoomId) return;
+
+        // Hanya update tombol yang ditekan/dilepas (menghemat kuota Firebase)
+        let updateData = {};
+        updateData[keyName] = isPressed;
+
+        db.collection("rooms")
+          .doc(currentRoomId)
+          .update(updateData)
+          .catch((err) => {
+            console.log("Error Firebase (Room belum ada/koneksi putus): ", err);
+          });
+      }
+
+      // Menggunakan touchstart/touchend agar mendukung HP dan bisa ditekan bersamaan (Multi-touch)
+      buttons.forEach((button) => {
+        const keyName = button.getAttribute("data-key");
+
+        // Saat ditekan
+        button.addEventListener("touchstart", (e) => {
+          e.preventDefault(); // Mencegah klik ganda / scroll di HP
+          button.classList.add("pressed");
+          updateFirebase(keyName, true);
+        });
+
+        // Saat dilepas
+        button.addEventListener("touchend", (e) => {
+          e.preventDefault();
+          button.classList.remove("pressed");
+          updateFirebase(keyName, false);
+        });
+
+        // Fallback untuk mouse (jika di test di laptop)
+        button.addEventListener("mousedown", () => {
+          button.classList.add("pressed");
+          updateFirebase(keyName, true);
+        });
+        button.addEventListener("mouseup", () => {
+          button.classList.remove("pressed");
+          updateFirebase(keyName, false);
+        });
+      });
+    </script>
+  </body>
+</html>
